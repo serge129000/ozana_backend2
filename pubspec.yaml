@@ -1,0 +1,18 @@
+name: ozana_backend2
+description: An new Dart Frog application
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  dart_frog: ^1.0.0
+  encrypt: ^5.0.3
+  http: ^0.13.6
+  intl: ^0.18.1
+  postgres: ^2.6.1
+dev_dependencies:
+  mocktail: ^1.0.0
+  test: ^1.19.2
+  very_good_analysis: ^5.1.0
