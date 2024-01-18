@@ -2,8 +2,8 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
-import 'package:encrypt/encrypt.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -254,7 +254,7 @@ WHERE u.sexe != '${data.single["utilisateurs"]!["sexe"]}' AND u.id != $id ORDER 
       }
       return SuccesResponse(data: []);
     } catch (e) {
-      print(e);
+      //print(e);
       return ErrorResponse(
           message: e.toString(), requestCode: HttpStatus.badRequest);
     }
@@ -407,10 +407,161 @@ WHERE u.sexe != '${data.single["utilisateurs"]!["sexe"]}' AND u.id != $id ORDER 
       final sql2 = 'delete from utilisateurs where id = $id';
       await db.execute(sql1);
       await db.execute(sql2);
-      return SuccesResponse(data: []);
+      return SuccesResponse(data: <dynamic>[]);
     } catch (e) {
       return ErrorResponse(
-          message: e.toString(), requestCode: HttpStatus.badRequest);
+        message: e.toString(),
+        requestCode: HttpStatus.badRequest,
+      );
+    }
+  }
+
+  @override
+  Future<http.Response> sendSms(
+      {required String message, required String to}) async {
+    final response = await http.post(
+      Uri.parse(
+        'https://edok-api.kingsmspro.org/api/v1/sms/send',
+      ).replace(
+        queryParameters: {
+          'from': 'OZANA',
+          'to': to,
+          'type': '1',
+          'dlr': 'no',
+          'message': message,
+        },
+      ),
+      headers: {
+        'CLIENTID': '4114',
+        'APIKEY': 'lY9Z68pFnA5EnJ72fM3fH2sT4aNDSDvK',
+        'Content-Type': 'application/json'
+      },
+    );
+    return response;
+  }
+
+  @override
+  Future<QueryResponse> authPhoneNumber({required String phone}) async {
+    try {
+      final db = PostGreSqlInstance.settings;
+      await PostGreSqlInstance.init();
+      final sql = "select * from utilisateurs where phone = '$phone'";
+      final data = await db.mappedResultsQuery(sql);
+      if (data.isEmpty) {
+        final random = Random();
+        final code = 100000 + random.nextInt(900000);
+        //print('Votre code pour vous authentifier sur OZANA est $code');
+        await sendSms(
+          message: 'Votre code pour vous authentifier sur OZANA est $code',
+          to: phone.replaceAll('+', ''),
+        );
+        final sql2 = "select * from authcode where numero = '$phone'";
+        final secondData = await db.mappedResultsQuery(sql2);
+        if (secondData.isEmpty) {
+          final sql2 =
+              "insert into authcode(numero, code) values ('$phone', '$code')";
+          await db.execute(sql2);
+        } else {
+          final sql2 =
+              "update authcode set code = '$code' where numero = '$phone'";
+          await db.execute(sql2);
+        }
+        return SuccesResponse(data: data);
+      } else {
+        return ErrorResponse(
+          message: 'Vous avez deja un compte veuillez vous reconnecter',
+          requestCode: HttpStatus.forbidden,
+        );
+      }
+    } catch (e) {
+      return ErrorResponse(
+        message: e.toString(),
+        requestCode: HttpStatus.internalServerError,
+      );
+    }
+  }
+
+  @override
+  Future<QueryResponse> checkSmsCode({
+    required String code,
+    required String phone,
+  }) async {
+    try {
+      final db = PostGreSqlInstance.settings;
+      await PostGreSqlInstance.init();
+      final sql =
+          "select * from authcode where numero = '$phone' AND code = '$code';";
+      final data = await db.mappedResultsQuery(sql);
+      if (data.isEmpty) {
+        return ErrorResponse(
+          message: 'Code incorrect',
+          requestCode: HttpStatus.badRequest,
+        );
+      }
+      return SuccesResponse(data: 'Code executer avec succes');
+    } catch (e) {
+      return ErrorResponse(
+        message: e.toString(),
+        requestCode: HttpStatus.internalServerError,
+      );
+    }
+  }
+
+  @override
+  Future<QueryResponse> resetPasswordCode({required String phone}) async {
+    try {
+      final db = PostGreSqlInstance.settings;
+      await PostGreSqlInstance.init();
+      final sql = "select * from utilisateurs where phone = '$phone'";
+      final data = await db.mappedResultsQuery(sql);
+      if (data.isNotEmpty) {
+        final random = Random();
+        final code = 100000 + random.nextInt(900000);
+        //print('Votre code pour vous authentifier sur OZANA est $code');
+        await sendSms(
+          message: 'Votre code pour vous authentifier sur OZANA est $code',
+          to: phone.replaceAll('+', ''),
+        );
+        final sql2 = "select * from authcode where numero = '$phone'";
+        final secondData = await db.mappedResultsQuery(sql2);
+        if (secondData.isEmpty) {
+          final sql2 =
+              "insert into authcode(numero, code) values ('$phone', '$code')";
+          await db.execute(sql2);
+        } else {
+          final sql2 =
+              "update authcode set code = '$code' where numero = '$phone'";
+          await db.execute(sql2);
+        }
+        return SuccesResponse(data: data);
+      } else {
+        return ErrorResponse(
+          message: 'Vous avez deja un compte veuillez vous reconnecter',
+          requestCode: HttpStatus.forbidden,
+        );
+      }
+    } catch (e) {
+      return ErrorResponse(
+        message: e.toString(),
+        requestCode: HttpStatus.internalServerError,
+      );
+    }
+  }
+
+  @override
+  Future<QueryResponse> resetPassword(
+      {required String password, required String phone}) async {
+    try {
+      final db = PostGreSqlInstance.settings;
+      await PostGreSqlInstance.init();
+      final sql =
+          "update utilisateurs set mot_de_passe = '$password' where phone = '$phone'";
+      await db.execute(sql);
+      return SuccesResponse(data: {});
+    } catch (e) {
+      return ErrorResponse(
+          message: "Une erreur s'est produite",
+          requestCode: HttpStatus.badRequest);
     }
   }
 }

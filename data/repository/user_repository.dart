@@ -31,4 +31,11 @@ abstract class UserRepository {
       required String oldPassword,
       required String newPassword});
   Future<QueryResponse> deleteUserAccount({required String token});
+  Future<void> sendSms({required String message, required String to});
+  Future<QueryResponse> authPhoneNumber({required String phone});
+  Future<QueryResponse> checkSmsCode(
+      {required String code, required String phone});
+  Future<QueryResponse> resetPasswordCode({required String phone});
+  Future<QueryResponse> resetPassword({required String password,
+   required String phone});
 }
